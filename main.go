@@ -13,25 +13,14 @@ import (
 )
 
 var defaults = Configuration{
-	DbUser:         "db_user",
-	DbPassword:     "db_pw",
-	DbName:         "bd_name",
-	PkgName:        "DbStructs",
-	TagLabel:       "db",
-	Xorm:           false,
-	OnlyBaseTables: false,
-}
-
-func init() {
-
-	flag.StringVar(&defaults.DbUser, "user", "root", "Set the user for the db connection")
-	flag.StringVar(&defaults.DbPassword, "pass", "pass", "Set the pass for the db connection")
-	flag.StringVar(&defaults.DbName, "db", "database", "Set the pass for the db connection")
-
-	flag.BoolVar(&defaults.Xorm, "xorm", false, "Xorm support.")
-	flag.BoolVar(&defaults.OnlyBaseTables, "base", false, "Sets whether to only use base tables.")
-
-	flag.Parse()
+	DbUser:          "db_user",
+	DbPassword:      "db_pw",
+	DbName:          "bd_name",
+	PkgName:         "DbStructs",
+	TagLabel:        "db",
+	Xorm:            false,
+	OnlyBaseTables:  false,
+	IgnoreNullables: false,
 }
 
 var config Configuration
@@ -45,8 +34,9 @@ type Configuration struct {
 	// TagLabel produces tags commonly used to match database field names with Go struct members
 	TagLabel string `json:"tag_label"`
 	// Adds the tablename return for the xorm ORM
-	Xorm           bool `json:"xorm"`
-	OnlyBaseTables bool `json:"only_base_tables"`
+	Xorm            bool `json:"xorm"`
+	OnlyBaseTables  bool `json:"only_base_tables"`
+	IgnoreNullables bool `json:"ignore_nullables"`
 }
 
 type ColumnSchema struct {
@@ -62,6 +52,7 @@ type ColumnSchema struct {
 }
 
 func writeStructs(schemas []ColumnSchema) (int, error) {
+
 	file, err := os.Create("db_structs.go")
 	if err != nil {
 		log.Fatal(err)
@@ -185,7 +176,7 @@ func goType(col *ColumnSchema) (string, string, error) {
 	var gt string = ""
 	switch col.DataType {
 	case "char", "varchar", "enum", "set", "text", "longtext", "mediumtext", "tinytext":
-		if col.IsNullable == "YES" {
+		if col.IsNullable == "YES" && !config.IgnoreNullables {
 			gt = "sql.NullString"
 		} else {
 			gt = "string"
@@ -195,13 +186,13 @@ func goType(col *ColumnSchema) (string, string, error) {
 	case "date", "time", "datetime", "timestamp":
 		gt, requiredImport = "time.Time", "time"
 	case "bit", "tinyint", "smallint", "int", "mediumint", "bigint":
-		if col.IsNullable == "YES" {
+		if col.IsNullable == "YES" && !config.IgnoreNullables {
 			gt = "sql.NullInt64"
 		} else {
 			gt = "int64"
 		}
 	case "float", "decimal", "double":
-		if col.IsNullable == "YES" {
+		if col.IsNullable == "YES" && !config.IgnoreNullables {
 			gt = "sql.NullFloat64"
 		} else {
 			gt = "float64"
