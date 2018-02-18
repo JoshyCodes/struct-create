@@ -89,7 +89,17 @@ func writeStructs(schemas []ColumnSchema) (int, error) {
 		}
 		out = out + "\t" + formatName(cs.ColumnName) + " " + goType
 		if len(config.TagLabel) > 0 {
-			out = out + "\t`" + config.TagLabel + ":\"" + cs.ColumnName + "\"`"
+			if config.Xorm {
+				out = out + "\t`" + config.TagLabel + ":"
+				if cs.ColumnName == "id" {
+					out = out + "\"'" + cs.ColumnName + "' pk autoincr"
+				} else {
+					out = out + "\"" + cs.ColumnName
+				}
+				out = out + "\" json:\"" + cs.ColumnName + "\"`"
+			} else {
+				out = out + "\t`" + config.TagLabel + ":\"" + cs.ColumnName + "\"`"
+			}
 		}
 		out = out + "\n"
 		currentTable = cs.TableName
