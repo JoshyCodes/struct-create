@@ -20,3 +20,6 @@ _cgo_export.*
 _testmain.go
 
 *.exe
+
+# Ignore the file that was created on test
+db_structs.go

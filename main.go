@@ -13,11 +13,25 @@ import (
 )
 
 var defaults = Configuration{
-	DbUser: "db_user",
-	DbPassword: "db_pw",
-	DbName: "bd_name",
-	PkgName: "DbStructs",
-	TagLabel: "db",
+	DbUser:         "db_user",
+	DbPassword:     "db_pw",
+	DbName:         "bd_name",
+	PkgName:        "DbStructs",
+	TagLabel:       "db",
+	Xorm:           false,
+	OnlyBaseTables: false,
+}
+
+func init() {
+
+	flag.StringVar(&defaults.DbUser, "user", "root", "Set the user for the db connection")
+	flag.StringVar(&defaults.DbPassword, "pass", "pass", "Set the pass for the db connection")
+	flag.StringVar(&defaults.DbName, "db", "database", "Set the pass for the db connection")
+
+	flag.BoolVar(&defaults.Xorm, "xorm", false, "Xorm support.")
+	flag.BoolVar(&defaults.OnlyBaseTables, "base", false, "Sets whether to only use base tables.")
+
+	flag.Parse()
 }
 
 var config Configuration
@@ -30,6 +44,9 @@ type Configuration struct {
 	PkgName string `json:"pkg_name"`
 	// TagLabel produces tags commonly used to match database field names with Go struct members
 	TagLabel string `json:"tag_label"`
+	// Adds the tablename return for the xorm ORM
+	Xorm           bool `json:"xorm"`
+	OnlyBaseTables bool `json:"only_base_tables"`
 }
 
 type ColumnSchema struct {
@@ -62,6 +79,11 @@ func writeStructs(schemas []ColumnSchema) (int, error) {
 		if cs.TableName != currentTable {
 			if currentTable != "" {
 				out = out + "}\n\n"
+				if config.Xorm {
+					out = out + "func (t *" + formatName(currentTable) + ") TableName() string {\n" +
+						"\t return \"" + currentTable + "\"\n" +
+						"}\n\n"
+				}
 			}
 			out = out + "type " + formatName(cs.TableName) + " struct{\n"
 		}
@@ -107,9 +129,21 @@ func getSchema() []ColumnSchema {
 		log.Fatal(err)
 	}
 	defer conn.Close()
-	q := "SELECT TABLE_NAME, COLUMN_NAME, IS_NULLABLE, DATA_TYPE, " +
-		"CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE, COLUMN_TYPE, " +
-		"COLUMN_KEY FROM COLUMNS WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, ORDINAL_POSITION"
+	q := "SELECT COLUMNS.TABLE_NAME, COLUMNS.COLUMN_NAME, COLUMNS.IS_NULLABLE, COLUMNS.DATA_TYPE, " +
+		"COLUMNS.CHARACTER_MAXIMUM_LENGTH, COLUMNS.NUMERIC_PRECISION, COLUMNS.NUMERIC_SCALE, COLUMNS.COLUMN_TYPE, " +
+		"COLUMNS.COLUMN_KEY FROM COLUMNS "
+
+	if config.OnlyBaseTables {
+		q = q + "LEFT JOIN TABLES ON TABLES.TABLE_NAME = COLUMNS.TABLE_NAME AND TABLES.TABLE_SCHEMA = COLUMNS.TABLE_SCHEMA "
+	}
+
+	q = q + "WHERE COLUMNS.TABLE_SCHEMA = ? "
+
+	if config.OnlyBaseTables {
+		q = q + "AND TABLES.TABLE_TYPE = \"BASE TABLE\" "
+	}
+
+	q = q + "ORDER BY COLUMNS.TABLE_NAME, COLUMNS.ORDINAL_POSITION"
 	rows, err := conn.Query(q, config.DbName)
 	if err != nil {
 		log.Fatal(err)
@@ -184,7 +218,7 @@ var configFile = flag.String("json", "", "Config file")
 
 func main() {
 	flag.Parse()
-	
+
 	if len(*configFile) > 0 {
 		f, err := os.Open(*configFile)
 		if err != nil {
