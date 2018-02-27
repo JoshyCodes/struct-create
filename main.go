@@ -71,8 +71,16 @@ func writeStructs(schemas []ColumnSchema) (int, error) {
 			if currentTable != "" {
 				out = out + "}\n\n"
 				if config.Xorm {
-					out = out + "func (t *" + formatName(currentTable) + ") TableName() string {\n" +
+					out = out + "func (t " + formatName(currentTable) + ") TableName() string {\n" +
 						"\t return \"" + currentTable + "\"\n" +
+						"}\n\n"
+
+					out = out + "func (t " + formatName(currentTable) + ") SetId(id int64) {\n" +
+						"\tt.Id = id\n" +
+						"}\n\n"
+
+					out = out + "func (t " + formatName(currentTable) + ") GetId() int64 {\n" +
+						"\treturn t.Id\n" +
 						"}\n\n"
 				}
 			}
@@ -96,10 +104,20 @@ func writeStructs(schemas []ColumnSchema) (int, error) {
 				} else {
 					out = out + "\"" + cs.ColumnName
 				}
-				out = out + "\" json:\"" + cs.ColumnName + "\"`"
+				out = out + "\" json:\"" + cs.ColumnName + "\""
 			} else {
-				out = out + "\t`" + config.TagLabel + ":\"" + cs.ColumnName + "\"`"
+				out = out + "\t`" + config.TagLabel + ":\"" + cs.ColumnName + "\""
 			}
+
+			// Need to make this an option at some point
+			if true {
+				out = out + " schema:\"" + cs.ColumnName + "\""
+				if goType == "bool" {
+					out = out + " sql:\"default: false\""
+				}
+			}
+
+			out = out + "`"
 		}
 		out = out + "\n"
 		currentTable = cs.TableName
@@ -180,7 +198,7 @@ func formatName(name string) string {
 
 func goType(col *ColumnSchema) (string, string, error) {
 	requiredImport := ""
-	if col.IsNullable == "YES" {
+	if col.IsNullable == "YES" && !config.IgnoreNullables {
 		requiredImport = "database/sql"
 	}
 	var gt string = ""
@@ -196,10 +214,14 @@ func goType(col *ColumnSchema) (string, string, error) {
 	case "date", "time", "datetime", "timestamp":
 		gt, requiredImport = "time.Time", "time"
 	case "bit", "tinyint", "smallint", "int", "mediumint", "bigint":
-		if col.IsNullable == "YES" && !config.IgnoreNullables {
-			gt = "sql.NullInt64"
+		if col.ColumnType == "tinyint(1) unsigned" {
+			gt = "bool"
 		} else {
-			gt = "int64"
+			if col.IsNullable == "YES" && !config.IgnoreNullables {
+				gt = "sql.NullInt64"
+			} else {
+				gt = "int64"
+			}
 		}
 	case "float", "decimal", "double":
 		if col.IsNullable == "YES" && !config.IgnoreNullables {

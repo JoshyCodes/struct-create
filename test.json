@@ -1,9 +1,9 @@
 {
 	"db_user": "test",
 	"db_password": "test",
-	"db_name": "fusion",
-	"pkg_name": "JsonTest",
-	"tag_label": "db",
+	"db_name": "go_fusion",
+	"pkg_name": "db",
+	"tag_label": "xorm",
 	"xorm":true,
 	"only_base_tables":true,
 	"ignore_nullables":true
