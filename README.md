@@ -1,6 +1,8 @@
 struct-create
 =============
 
+I forked this from happilymarrieddad, his version worked great with mysql - I would like to adapt for mongodb
+
 Creates Go source file of structs for use in some MySQL database packages. It uses [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql) for querying the information_schema database. I created this for personal use, so it's not written for extensibility, but shouldn't be difficult to adapt for your own use.
 
 Configuration may be set in the source file:
